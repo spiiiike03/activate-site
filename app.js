@@ -13,10 +13,10 @@
     activePanel: "submit",
   };
 
-  const API = {
-    submit: "/api/public/activation-submit",
-    query: "/api/public/activation-query",
-  };
+const API = {
+  submit: "/api/activation-submit",
+  query: "/api/activation-query",
+};
 
   const el = {};
 
