@@ -414,38 +414,43 @@ const API = {
     window.open(qqUrl, "_blank", "noopener,noreferrer");
   }
 
-  async function submitPairs() {
-    state.pending = "submit";
-    state.error = "";
-    state.notice = "";
-    render();
-    try {
-      const response = await fetch(API.submit, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          bulk_activation_codes: state.confirmPairs.map((item) => item.activation_code).join("\n"),
-          bulk_target_emails: state.confirmPairs.map((item) => item.target_email).join("\n"),
-        }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        if (response.status === 429) {
-          throw new Error(buildRateLimitMessage(response, data, "提交过于频繁。"));
-        }
-        throw new Error(data?.detail || `提交失败 (${response.status})`);
+async function submitPairs() {
+  state.pending = "submit";
+  state.error = "";
+  state.notice = "";
+  render();
+  try {
+    // 调用正确的提交接口
+    const response = await fetch("https://activate.xile.indevs.in/api/public/activation-submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        bulk_activation_codes: state.confirmPairs.map((item) => item.activation_code).join("\n"),
+        bulk_target_emails: state.confirmPairs.map((item) => item.target_email).join("\n"),
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error("提交过于频繁，请稍后再试。");
       }
-      state.notice = `提交成功，系统已开始处理 ${data.count || state.confirmPairs.length} 条卡号申请。`;
-      state.queryCodes = state.confirmPairs.map((item) => item.activation_code).join("\n");
-      state.confirmOpen = false;
-      await queryOrders();
-    } catch (err) {
-      state.error = err?.message || String(err);
-    } finally {
-      state.pending = "";
-      render();
+      throw new Error(data?.detail || `提交失败 (${response.status})`);
     }
+
+    state.notice = `提交成功，系统已开始处理 ${data.count || state.confirmPairs.length} 条卡号申请。`;
+    state.confirmOpen = false;
+
+    // 提交完成后立即调用查询接口显示状态
+    await queryOrders();  // 保留原来的 queryOrders() 调用
+  } catch (err) {
+    state.error = err?.message || String(err);
+  } finally {
+    state.pending = "";
+    render();
   }
+}
 
   async function queryOrders() {
     state.pending = "query";
