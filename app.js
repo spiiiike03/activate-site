@@ -420,7 +420,7 @@ async function submitPairs() {
   state.notice = "";
   render();
   try {
-    // 调用正确的提交接口
+    // 调用原站提交接口
     const response = await fetch("https://activate.xile.indevs.in/api/public/activation-submit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -439,13 +439,34 @@ async function submitPairs() {
       throw new Error(data?.detail || `提交失败 (${response.status})`);
     }
 
+    // 提交成功后生成“处理中”条目，保持原表格风格
+    state.confirmPairs.forEach((item) => {
+      const exists = state.queryItems.find(
+        (q) => q.activation_code === item.activation_code && q.target_email === item.target_email
+      );
+      if (!exists) {
+        state.queryItems.push({
+          activation_code: item.activation_code,
+          target_email: item.target_email,
+          status: "processing",             // 显示“处理中”
+          finished_at: null,
+          updated_at: new Date().toISOString(),
+        });
+      }
+    });
+
     state.notice = `提交成功，系统已开始处理 ${data.count || state.confirmPairs.length} 条卡号申请。`;
     state.confirmOpen = false;
 
-    // 提交完成后立即调用查询接口显示状态
-    await queryOrders();  // 保留原来的 queryOrders() 调用
+    // 渲染表格保持页面风格和样式
+    render();
+
+    // 提交完成后再调用查询接口刷新真实状态
+    await queryOrders();
+
   } catch (err) {
     state.error = err?.message || String(err);
+    render();
   } finally {
     state.pending = "";
     render();
